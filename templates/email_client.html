@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ウェブメール クライアント</title>
+  <style>
+    /* 全体レイアウト：画面いっぱいに広げる */
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      color: #333;
+      background-color: #f8f9fa;
+    }
+    
+    /* 上部ヘッダー */
+    header {
+      height: 50px;
+      background-color: #ffffff;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+    }
+    .header-title { font-weight: bold; font-size: 1.2rem; color: #1a73e8; }
+    
+    /* 3カラムコンテナ */
+    .mail-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden; /* 各ペインのスクロールを独立させる */
+    }
+
+    /* ----------------------------------
+       1カラム目：左ペイン（フォルダ・メニュー）
+    ------------------------------------- */
+    .nav-pane {
+      width: 200px;
+      background-color: #ffffff;
+      padding: 15px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .btn-compose {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 24px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 15px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: background 0.2s;
+    }
+    .btn-compose:hover { background-color: #1557b0; }
+    .folder-item {
+      padding: 10px 15px;
+      border-radius: 0 20px 20px 0;
+      cursor: pointer;
+      font-size: 0.95rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    .folder-item:hover { background-color: #f1f3f4; }
+    .folder-item.active { background-color: #e8f0fe; color: #1a73e8; font-weight: bold; }
+    .unread-count { background: #f1f3f4; padding: 2px 8px; border-radius: 10px; font-size: 0.8rem; color: #5f6368; }
+    .folder-item.active .unread-count { background: #d2e3fc; color: #1a73e8; }
+
+    /* ----------------------------------
+       2カラム目：中央ペイン（メール一覧）
+    ------------------------------------- */
+    .list-pane {
+      width: 350px;
+      background-color: #ffffff;
+      border-left: 1px solid #e0e0e0;
+      border-right: 1px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+    }
+    .pane-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid #e0e0e0;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .mail-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .mail-item {
+      padding: 15px 20px;
+      border-bottom: 1px solid #f1f3f4;
+      cursor: pointer;
+      position: relative;
+    }
+    .mail-item:hover { background-color: #f7f9fa; }
+    .mail-item.active { background-color: #f2f6fc; border-left: 4px solid #1a73e8; padding-left: 16px; }
+    .mail-sender { font-weight: bold; font-size: 0.9rem; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .mail-date { font-weight: normal; font-size: 0.8rem; color: #5f6368; }
+    .mail-subject { font-size: 0.9rem; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mail-snippet { font-size: 0.85rem; color: #5f6368; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* 未読メールのスタイル */
+    .mail-item.unread .mail-sender, .mail-item.unread .mail-subject { font-weight: 900; color: #000; }
+
+    /* ----------------------------------
+       3カラム目：右ペイン（メール本文表示）
+    ------------------------------------- */
+    .content-pane {
+      flex: 1;
+      background-color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .placeholder {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      color: #5f6368;
+    }
+    .mail-view {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    .view-header {
+      padding: 20px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .view-subject { font-size: 1.4rem; font-weight: normal; margin: 0 0 15px 0; }
+    .view-meta { display: flex; justify-content: space-between; font-size: 0.9rem; color: #5f6368; }
+    .view-body {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+    /* HTMLメール表示用に安全に隔離するためのiframe */
+    .view-body iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="header-title">MyWebMail</div>
+    <div>ユーザー: test@example.com</div>
+  </header>
+
+  <!-- 3カラムメインエリア -->
+  <div class="mail-container">
+    
+    <!-- 1カラム目: ナビゲーション -->
+    <div class="nav-pane">
+      <button class="btn-compose" onclick="composeMail()">✏️ 作成</button>
+      <div class="folder-item active" onclick="switchFolder('inbox')">
+        <span>📥 受信トレイ</span> <span class="unread-count">2</span>
+      </div>
+      <div class="folder-item" onclick="switchFolder('sent')">
+        <span>📤 送信済み</span>
+      </div>
+      <div class="folder-item" onclick="switchFolder('drafts')">
+        <span>📝 下書き</span>
+      </div>
+    </div>
+
+    <!-- 2カラム目: メール一覧 -->
+    <div class="list-pane">
+      <div class="pane-header" id="current-folder-title">受信トレイ</div>
+      <ul class="mail-list" id="mail-list-ul">
+        <!-- JSで動的に挿入 -->
+      </ul>
+    </div>
+
+    <!-- 3カラム目: メール本文プレビュー -->
+    <div class="content-pane" id="content-pane-area">
+      <div class="placeholder" id="mail-placeholder">
+        <h3>表示するメールを選択してください</h3>
+      </div>
+      
+      <div class="mail-view" id="mail-view-area" style="display: none;">
+        <div class="view-header">
+          <h2 class="view-subject" id="view-subject"></h2>
+          <div class="view-meta">
+            <div>差出人: <span id="view-sender" style="font-weight: bold; color:#000;"></span></div>
+            <div id="view-date"></div>
+          </div>
+        </div>
+        <!-- 本文領域。HTMLメールによるセキュリティバグ(XSS)を防ぐためiframeに流し込む形を想定 -->
+        <div class="view-body" id="view-body-container">
+          <iframe id="mail-body-iframe"></iframe>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // 💡 フロントテスト用の擬似データ（バックエンド連携後はAPIから取得）
+    const mockMails = {
+      inbox: [
+        { id: 101, sender: "鈴木 一郎 <suzuki@example.com>", subject: "来週のミーティング日程について", date: "14:20", unread: true, body: "<p>鈴木です。<br>来週のミーティングですが、火曜日の15時からはいかがでしょうか？</p>" },
+        { id: 102, sender: "GitHub <noreply@github.com>", subject: "[GitHub] Security Alert: dependency vulnerability", date: "昨日", unread: true, body: "<div>GitHub detected a vulnerable dependency in one of your repositories.</div>" },
+        { id: 103, sender: "Amazon.co.jp <info@amazon.co.jp>", subject: "ご注文の確認：プレミアムコーヒー豆", date: "10月10日", unread: false, body: "Amazonをご利用いただきありがとうございます。商品の発送準備が整いました。" }
+      ],
+      sent: [
+        { id: 201, sender: "宛先: 山田 太郎", subject: "Re: 報告書の修正完了", date: "10月11日", unread: false, body: "山田さん、修正完了しました。ご確認お願いします。" }
+      ],
+      drafts: [
+        { id: 301, sender: "下書き", subject: "[無題の下書き]", date: "10月05日", unread: false, body: "お世話になっております。先日の件ですが..." }
+      ]
+    };
+
+    let currentFolder = 'inbox';
+
+    // ページロード時に「受信トレイ」を描画
+    document.addEventListener("DOMContentLoaded", () => {
+      renderMailList(currentFolder);
+    });
+
+    // フォルダ切り替え処理
+    function switchFolder(folderName) {
+      currentFolder = folderName;
+      
+      // 左ペインのアクティブ表示切り替え
+      document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+      
+      // 中央ペインのヘッダータイトル変更
+      const titles = { inbox: "受信トレイ", sent: "送信済み", drafts: "下書き" };
+      document.getElementById('current-folder-title').textContent = titles[folderName];
+      
+      // 右ペインをプレースホルダーに戻す
+      document.getElementById('mail-placeholder').style.display = 'flex';
+      document.getElementById('mail-view-area').style.display = 'none';
+
+      renderMailList(folderName);
+    }
+
+    // メール一覧（中央ペイン）を描画する関数
+    function renderMailList(folder) {
+      const ul = document.getElementById('mail-list-ul');
+      ul.innerHTML = '';
+      
+      const mails = mockMails[folder] || [];
+      mails.forEach(mail => {
+        const li = document.createElement('li');
+        li.className = `mail-item ${mail.unread ? 'unread' : ''}`;
+        li.id = `mail-${mail.id}`;
+        
+        // メールのプレビュー用スニペット（HTMLタグを除去してプレーンテキスト化）
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = mail.body;
+        const plainText = tempDiv.textContent || tempDiv.innerText || "";
+
+        li.innerHTML = `
+          <div class="mail-sender"><span>${mail.sender}</span><span class="mail-date">${mail.date}</span></div>
+          <div class="mail-subject">${mail.subject}</div>
+          <div class="mail-snippet">${plainText}</div>
+        `;
+        
+        li.onclick = () => selectMail(mail, li);
+        ul.appendChild(li);
+      });
+    }
+
+    // メール選択処理（右ペインに表示）
+    function selectMail(mail, element) {
+      // 一覧のアクティブ切り替え
+      document.querySelectorAll('.mail-item').forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+      
+      // 未読フラグを落とす（モック処理）
+      if (mail.unread) {
+        mail.unread = false;
+        element.classList.remove('unread');
+      }
+
+      // 表示エリアの切り替え
+      document.getElementById('mail-placeholder').style.display = 'none';
+      document.getElementById('mail-view-area').style.display = 'flex';
+
+      // メタデータのセット
+      document.getElementById('view-subject').textContent = mail.subject;
+      document.getElementById('view-sender').textContent = mail.sender;
+      document.getElementById('view-date').textContent = mail.date;
+
+      // 💡 メール本文（HTML等）を安全にiframeに描画する
+      const iframe = document.getElementById('mail-body-iframe');
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      // 本文の見た目が崩れないように簡単なスタイルを一緒に書き込む
+      doc.write(`
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; line-height: 1.6; color: #333; margin: 0; padding: 5px; }
+        </style>
+        \${mail.body}
+      `);
+      doc.close();
+    }
+
+    // 新規作成ボタン（仮）
+    function composeMail() {
+      alert("メール新規作成モーダル（またはエディタ画面）をここに実装します。");
+    }
+  </script>
+</body>
+</html>
+

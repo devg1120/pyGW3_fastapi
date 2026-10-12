@@ -475,6 +475,15 @@ async def websocket_endpoint(websocket: WebSocket, username: str, db: Session = 
         await manager.broadcast({"user": "System", "text": f"◇ {username} さんが退室しました"})
 
 
+@app.get("/doctree", response_class=HTMLResponse)
+def markdown_list(request: Request, db: Session = Depends(get_db), current_user: User = Depends(login_required)):
+    """ドキュメント管理（サイドバー一覧 ＆ プレビュー・編集統合画面）"""
+    docs = db.query(MarkdownDocument).order_by(MarkdownDocument.updated_at.desc()).all()
+    return templates.TemplateResponse(
+        request=request,
+        name="doctree.html",  # このテンプレートに全ての機能を統合します
+        context={"current_user": current_user, "docs": docs}
+    )
 # --- Markdownドキュメント管理 ルーティング ---
 
 @app.get("/markdown", response_class=HTMLResponse)
@@ -486,6 +495,7 @@ def markdown_list(request: Request, db: Session = Depends(get_db), current_user:
         name="markdown_list.html",  # このテンプレートに全ての機能を統合します
         context={"current_user": current_user, "docs": docs}
     )
+
 
 # 【変更】従来の @app.get("/markdown/edit") フォーム表示用のルーティングは不要になったため削除します。
 
@@ -536,6 +546,14 @@ def markdown_delete(doc_id: int, request: Request, db: Session = Depends(get_db)
 
 
 
+@app.get("/email", response_class=HTMLResponse)
+def email_client_page(request: Request, db: Session = Depends(get_db), current_user: User = Depends(login_required)):
+    """メールクライアント ページ"""
+    return templates.TemplateResponse(
+        request=request,
+        name="email_client.html", # 先ほど作成したメール用のHTMLテンプレート名
+        context={"current_user": current_user}
+    )
 
 # --- サーバー起動設定 ---
 if __name__ == '__main__':

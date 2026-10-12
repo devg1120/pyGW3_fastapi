@@ -479,41 +479,29 @@ async def websocket_endpoint(websocket: WebSocket, username: str, db: Session = 
 
 @app.get("/markdown", response_class=HTMLResponse)
 def markdown_list(request: Request, db: Session = Depends(get_db), current_user: User = Depends(login_required)):
-    """ドキュメント一覧画面"""
+    """ドキュメント管理（サイドバー一覧 ＆ プレビュー・編集統合画面）"""
     docs = db.query(MarkdownDocument).order_by(MarkdownDocument.updated_at.desc()).all()
     return templates.TemplateResponse(
         request=request,
-        name="markdown_list.html",
+        name="markdown_list.html",  # このテンプレートに全ての機能を統合します
         context={"current_user": current_user, "docs": docs}
     )
 
-@app.get("/markdown/edit", response_class=HTMLResponse)
-def markdown_edit_form(request: Request, doc_id: Optional[int] = None, db: Session = Depends(get_db), current_user: User = Depends(login_required)):
-    """新規作成、または既存ドキュメントの編集画面"""
-    doc = None
-    if doc_id:
-        doc = db.query(MarkdownDocument).filter(MarkdownDocument.id == doc_id).first()
-        if not doc:
-            raise HTTPException(status_code=404, detail="Document not found")
+# 【変更】従来の @app.get("/markdown/edit") フォーム表示用のルーティングは不要になったため削除します。
 
-    return templates.TemplateResponse(
-        request=request,
-        name="markdown_edit.html",
-        context={"current_user": current_user, "doc": doc}
-    )
 
 @app.post("/markdown/save")
 def markdown_save(
     request: Request,
     title: str = Form(...),
     content: str = Form(...),
-    doc_id: Optional[int] = Form(None),
+    doc_id: Optional[int] = Form(None), # 隠しフィールドから送信されるID（新規なら空白）
     db: Session = Depends(get_db),
     current_user: User = Depends(login_required)
 ):
     """保存・更新処理"""
     if doc_id:
-        # 編集（更新）
+        # 既存ドキュメントの編集（更新）
         doc = db.query(MarkdownDocument).filter(MarkdownDocument.id == doc_id).first()
         if doc:
             doc.title = title
@@ -524,11 +512,18 @@ def markdown_save(
         # 新規作成
         doc = MarkdownDocument(title=title, content=content, user_id=current_user.id)
         db.add(doc)
+        db.flush() # コミット前にIDを確定させる
+        doc_id = doc.id # 新規作成されたドキュメントのIDを取得
         flash(request, '新しいドキュメントを作成しました。', 'success')
 
     db.commit()
-    return RedirectResponse(url="/markdown", status_code=status.HTTP_303_SEE_OTHER)
 
+    # 【修正】リダイレクト先のURLに、閲覧中のドキュメントIDとreadonlyモードのパラメータを付与する
+    # ※一覧画面（/markdown）の作りに合わせて、必要なら ?id={doc_id} などを調整してください
+    redirect_url = f"/markdown?id={doc_id}&mode=readonly"
+    return RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
+
+# 【変更】JavaScriptから簡単にリクエストを送りやすくするため、URLをPOSTパラメータ対応、または従来のままで受け付けます
 @app.post("/markdown/delete/{doc_id}")
 def markdown_delete(doc_id: int, request: Request, db: Session = Depends(get_db), current_user: User = Depends(login_required)):
     """削除処理"""
@@ -538,6 +533,8 @@ def markdown_delete(doc_id: int, request: Request, db: Session = Depends(get_db)
         db.commit()
         flash(request, 'ドキュメントを削除しました。', 'success')
     return RedirectResponse(url="/markdown", status_code=status.HTTP_303_SEE_OTHER)
+
+
 
 
 # --- サーバー起動設定 ---

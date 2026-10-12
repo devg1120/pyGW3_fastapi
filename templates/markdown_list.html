@@ -1,173 +1,397 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>ドキュメント管理</title>
-    <style>
-        /* 全体リセットと固定ヘッダー対策 */
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f8f9fa;
-            padding-top: 110px; /* 固定ヘッダーとタブの高さ分の余白 */
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+  <meta charset="UTF-8">
+  <title>ドキュメント管理</title>
+  <!-- EasyMDEのCSSとJS -->
+     <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css"
+      />
+      <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      color: #333;
+    }
+    header {
+      background-color: #343a40;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header a { color: #ffc107; text-decoration: none; margin-left: 15px;}
 
-        /* 画面上部のアクションエリア */
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 24px;
-        }
-        .page-header h2 {
-            font-size: 22px;
-            color: #1d1c1d;
-        }
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 14px;
-            text-decoration: none;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            transition: background 0.2s;
-        }
-        .btn-primary {
-            background: #007a5a;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #145e49;
-        }
-        .btn-danger {
-            background: #e01e5a;
-            color: white;
-        }
-        .btn-danger:hover {
-            background: #b71243;
-        }
-        .btn-outline {
-            background: transparent;
-            border: 1px solid #ccc;
-            color: #555;
-            padding: 6px 12px;
-        }
-        .btn-outline:hover {
-            background: #f1f1f4;
-        }
+    /* 2カラム管理コンテナ */
+    .manager-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
 
-        /* ドキュメント一覧のリストスタイル */
-        .doc-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .doc-item {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #e2e2e2;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        .doc-info h3 {
-            font-size: 18px;
-            color: #1164A3;
-            margin-bottom: 6px;
-        }
-        .doc-info h3 a {
-            color: inherit;
-            text-decoration: none;
-        }
-        .doc-info h3 a:hover {
-            text-decoration: underline;
-        }
-        .doc-meta {
-            font-size: 13px;
-            color: #666;
-        }
-        .doc-actions {
-            display: flex;
-            gap: 8px;
-        }
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-            background: white;
-            border-radius: 8px;
-            border: 1px solid #e2e2e2;
-        }
-    </style>
+    /* 左側：サイドバー（一覧） */
+    .sidebar {
+      width: 320px;
+      background-color: #f8f9fa;
+      border-right: 1px solid #dee2e6;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid #dee2e6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .btn-create {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .doc-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .doc-item {
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .doc-item:hover { background-color: #e9ecef; }
+    .doc-item.active { background-color: #007bff; color: white; }
+    .doc-item h3 { margin: 0 0 5px 0; font-size: 1.05rem; }
+    .doc-date { font-size: 0.8rem; color: #6c757d; }
+    .doc-item.active .doc-date { color: #ddf; }
+
+    /* 右側：メインエリア */
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      overflow-y: auto;
+      background-color: #fff;
+    }
+    .placeholder {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      color: #6c757d;
+      font-size: 1.2rem;
+    }
+
+    /* フォーム・エディタヘッダー */
+    .editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    .title-input {
+      font-size: 2rem;
+      font-weight: bold;
+      width: 70%;
+      border: none;
+      outline: none;
+      background: transparent;
+    }
+    .title-input:not([readonly]) {
+      border-bottom: 1px solid #ccc;
+    }
+    .btn-group button {
+      padding: 8px 16px;
+      margin-left: 5px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-edit { background-color: #007bff; color: white; border: none; }
+    .btn-save { background-color: #28a745; color: white; border: none; }
+    .btn-delete { background-color: #dc3545; color: white; border: none; }
+
+    /* EasyMDE リードオンリー（プレビュー）用のCSSハック */
+    .readonly-editor.editor-toolbar { display: none; } /* ツールバー非表示 */
+    .readonly-editor.CodeMirror { display: none; }     /* 入力エリア非表示 */
+    .readonly-editor.editor-preview-active-side { display: block; width: 100%; position: static; } /* プレビューを全面に */
+  </style>
 </head>
 <body>
 
-    <!-- 1. 共通固定ヘッダーとタブエリア -->
-    <div class="header-container" style="position: fixed; top: 0; left: 0; right: 0; background: white; z-index: 1030; border-bottom: 1px solid #ddd; padding: 10px 20px; height: 95px;">
-        <h1 style="font-size: 20px; margin: 0; display: inline-block;">社内グループウェア</h1>
-        <span style="float: right; font-size: 14px; margin-top: 5px;">ようこそ、{{ current_user.username }} さん | <a href="/logout">ログアウト</a></span>
-        
-        <div class="tab-container" style="margin-top: 15px; display: flex; gap: 15px;">
-            <a href="/" style="text-decoration: none; color: #555; padding: 5px 10px;">ダッシュボード</a>
-            <a href="/kanban" style="text-decoration: none; color: #555; padding: 5px 10px;">かんばん</a>
-            <a href="/members" style="text-decoration: none; color: #555; padding: 5px 10px;">メンバー</a>
-            <a href="/chat" style="text-decoration: none; color: #555; padding: 5px 10px;">チャット</a>
-            <a href="/markdown" style="text-decoration: none; color: #1164A3; font-weight: bold; border-bottom: 2px solid #1164A3; padding: 5px 10px;">ドキュメント管理</a>
-        </div>
+  <!-- 共通ヘッダー部分 -->
+  <header>
+    <div>
+      <span style="font-size: 1.3rem; font-weight: bold;">社内グループウェア</span>
+    </div>
+    <div>
+      ようこそ、{{ current_user.username }} さん | 
+      <a href="/">ダッシュボード</a> | 
+      <a href="/logout">ログアウト</a>
+    </div>
+  </header>
+
+  <!-- フラッシュメッセージの表示 -->
+  {% for category, message in get_flashed_messages() %}
+    <div style="padding: 10px 20px; background-color: {% if category=='success' %}#d4edda{% else %}#f8d7da{% endif %}; color: {% if category=='success' %}#155724{% else %}#721c24{% endif %};">
+      {{ message }}
+    </div>
+  {% endfor %}
+
+  <!-- メインレイアウト -->
+  <div class="manager-container">
+    
+    <!-- 左：サイドバー（一覧） -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2 style="margin:0; font-size: 1.2rem;">ドキュメント一覧</h2>
+        <button class="btn-create" onclick="clickNewDocument()">+ 新規追加</button>
+      </div>
+      <ul class="doc-list">
+        {% if docs %}
+          {% for d in docs %}
+            <!-- 各アイテムクリック時にJSへデータを安全に渡すため、カスタム属性 data-... を利用します -->
+            <li class="doc-item" id="doc-item-{{ d.id }}" 
+                data-id="{{ d.id }}" 
+                data-title="{{ d.title }}" 
+                data-content="{{ d.content }}">
+              <h3>{{ d.title }}</h3>
+              <div class="doc-date">更新日: {{ d.updated_at.strftime('%Y-%m-%d %H:%M') }}</div>
+            </li>
+          {% endfor %}
+        {% else %}
+          <li style="padding: 20px; color:#6c757d; text-align:center;">ドキュメントがありません。</li>
+        {% endif %}
+      </ul>
     </div>
 
-    <!-- 2. メインコンテンツ -->
-    <div class="container">
-        
-        <div class="page-header">
-            <h2>社内ドキュメント一覧</h2>
-            <!-- 新規作成画面（/markdown/edit）へ遷移するボタン -->
-            <a href="/markdown/edit" class="btn btn-primary">+ 新規ドキュメント作成</a>
-        </div>
+    <!-- 右：メインコンテンツ（プレビュー兼編集エリア） -->
+    <div class="main-content">
+      <!-- ドキュメント未選択時の案内表示 -->
+      <div id="view-placeholder" class="placeholder">
+        ドキュメントを選択するか、新しく作成してください。
+      </div>
 
-        <div class="doc-list">
-            {% if docs %}
-                {% for doc in docs %}
-                    <div class="doc-item">
-                        <div class="doc-info">
-                            <!-- タイトルクリックで編集画面（データ流し込み状態）へ -->
-                            <h3><a href="/markdown/edit?doc_id={{ doc.id }}">{{ doc.title }}</a></h3>
-                            <div class="doc-meta">
-                                更新日: {{ doc.updated_at.strftime('%Y-%m-%d %H:%M') }}
-                            </div>
-                        </div>
-                        <div class="doc-actions">
-                            <a href="/markdown/edit?doc_id={{ doc.id }}" class="btn btn-outline">編集</a>
-                            <!-- 削除用フォーム -->
-                            <form action="/markdown/delete//{{ doc.id }}" method="POST" onsubmit="return confirm('本当にこのドキュメントを削除しますか？');" style="display:inline;">
-                                <button type="submit" class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;">削除</button>
-                            </form>
-                        </div>
-                    </div>
-                {% endfor %}
-            {% else %}
-                <div class="no-data">
-                    登録されているドキュメントはありません。新しく作成してみましょう！
-                </div>
-            {% endif %}
-        </div>
+      <!-- 操作・表示フォーム（初期状態は非表示） -->
+      <div id="view-editor-area" style="display: none;">
+        <form id="markdown-form" method="POST" action="/markdown/save">
+          <!-- 更新時に必要なドキュメントID用の隠しフィールド -->
+          <input type="hidden" id="form-doc-id" name="doc_id">
 
+          <div class="editor-header">
+            <!-- タイトル用インプット（閲覧時は readonly） -->
+            <input type="text" id="form-title" name="title" class="title-input" readonly required>
+            
+            <!-- ボタンの制御グループ -->
+            <div class="btn-group">
+              <button type="button" id="btn-edit" class="btn-edit" onclick="switchToEditMode()">編集</button>
+              <button type="submit" id="btn-save" class="btn-save" style="display: none;">保存する</button>
+              <button type="button" id="btn-cancel" onclick="switchToReadOnlyMode()">キャンセル</button>
+              <button type="button" id="btn-delete" class="btn-delete" onclick="submitDeleteForm()">削除</button>
+            </div>
+          </div>
+
+          <!-- EasyMDEを適用するコンテナ。JSでクラスを切り替えてリードオンリー化します -->
+          <div id="mde-wrapper" class="readonly-editor">
+            <textarea id="easymde-textarea" name="content"></textarea>
+          </div>
+        </form>
+
+        <!-- 削除リクエスト送信用の隠しフォーム -->
+        <form id="delete-form" method="POST" action="" style="display: none;"></form>
+      </div>
     </div>
 
+  </div>
+
+  <script>
+    let mde = null;
+    let selectedDoc = null; // 現在選択中のドキュメント情報を一時保存
+
+    // ページ読み込み時にイベントリスナーを登録
+    document.addEventListener("DOMContentLoaded", () => {
+      const items = document.querySelectorAll(".doc-item");
+      items.forEach(item => {
+        item.addEventListener("click", () => {
+          // クリックされた要素からデータ属性を取得
+          const docId = item.getAttribute("data-id");
+          const docTitle = item.getAttribute("data-title");
+          const docContent = item.getAttribute("data-content");
+          
+          // アクティブクラスの制御
+          items.forEach(i => i.classList.remove("active"));
+          item.classList.add("active");
+
+          // ドキュメントをリードオンリーでロード
+          loadDocument(docId, docTitle, docContent);
+        });
+      });
+    });
+
+    // EasyMDEのインスタンスをモードに応じて再構築するヘルパー
+    function buildEditor(isReadOnly) {
+      if (mde) {
+        mde.toTextArea(); // 既存のエディタを破棄
+        mde = null;
+      }
+
+      const wrapper = document.getElementById("mde-wrapper");
+      
+      if (isReadOnly) {
+        // リードオンリー（プレビュー）モードの設定
+	 /*
+        mde = new EasyMDE({
+          element: document.getElementById("easymde-textarea"),
+          toolbar: false,   // ツールバーを隠す
+          readOnly: true,   // 編集不可にする
+          status: false,
+          spellChecker: false
+        });
+        //mde.togglePreview(); // 自動でプレビュー画面に切り替え
+        //ewrapper.className = "readonly-editor";
+	*/
+        mde = new EasyMDE({
+          element: document.getElementById("easymde-textarea"),
+          toolbar: false,   // ツールバーを隠す
+          //toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "image", "|", "preview", "side-by-side", "fullscreen"],
+          status: false,
+          spellChecker: false
+        });
+        //mde.togglePreview(); // 自動でプレビュー画面に切り替え
+        //wrapper.className = ""; // スタイルリセット
+        //wrapper.className = "readonly-editor";
+        mde.codemirror.setOption('readOnly', true);
+
+      } else {
+        // 通常編集モードの設定
+        mde = new EasyMDE({
+          element: document.getElementById("easymde-textarea"),
+          toolbar: ["bold", "italic", "heading", "|", "quote", "unordered-list", "ordered-list", "|", "link", "image", "|", "preview", "side-by-side", "fullscreen"],
+          status: false,
+          spellChecker: false
+        });
+        wrapper.className = ""; // スタイルリセット
+        mde.codemirror.setOption('readOnly', false);
+      }
+    }
+
+    // ドキュメントを選択したときの表示処理（リードオンリー表示）
+    function loadDocument(id, title, content) {
+      // キャッシュに保存（キャンセル用）
+      selectedDoc = { id, title, content };
+
+      // エリアの表示切り替え
+      document.getElementById("view-placeholder").style.display = "none";
+      document.getElementById("view-editor-area").style.display = "block";
+
+      // フォームデータのセット
+      document.getElementById("form-doc-id").value = id;
+      
+      const titleInput = document.getElementById("form-title");
+      titleInput.value = title;
+      titleInput.readOnly = true;
+
+      // ボタンの初期状態化
+      document.getElementById("btn-edit").style.display = "inline-block";
+      document.getElementById("btn-delete").style.display = "inline-block";
+      document.getElementById("btn-save").style.display = "none";
+      document.getElementById("btn-cancel").style.display = "none";
+
+      // エディタに値をセットしてリードオンリービルド
+      //console.log(content)
+      //document.getElementById("easymde-textarea").value = content;
+      buildEditor(true);
+     if (mde) {
+        //mde.value(content);
+        console.log(content)
+        //mde.value("AAAA");
+        mde.value(content);
+      }
+    }
+
+    // 閲覧状態から「編集モード」へ切り替える関数
+    function switchToEditMode() {
+      const titleInput = document.getElementById("form-title");
+      titleInput.readOnly = false;
+      titleInput.focus();
+
+      // ボタンの反転
+      document.getElementById("btn-edit").style.display = "none";
+      document.getElementById("btn-delete").style.display = "none";
+      document.getElementById("btn-save").style.display = "inline-block";
+      document.getElementById("btn-cancel").style.display = "inline-block";
+
+      // EasyMDE内のテキストデータを退避させ、通常モードで再構築
+      const currentMarkdown = mde.value();
+      buildEditor(false);
+      mde.value(currentMarkdown);
+    }
+
+    // 編集キャンセル時、または初期の閲覧モードに戻す関数
+    function switchToReadOnlyMode() {
+      if (selectedDoc) {
+        // 編集前の状態に戻して再ロード
+        loadDocument(selectedDoc.id, selectedDoc.title, selectedDoc.content);
+      } else {
+        // 新規作成時のキャンセルは初期の未選択状態に戻す
+        document.getElementById("view-placeholder").style.display = "flex";
+        document.getElementById("view-editor-area").style.display = "none";
+        document.querySelectorAll(".doc-item").forEach(i => i.classList.remove("active"));
+      }
+    }
+
+    // 「+ 新規追加」ボタンを押したときの処理
+    function clickNewDocument() {
+      selectedDoc = null; // キャッシュクリア
+      document.querySelectorAll(".doc-item").forEach(i => i.classList.remove("active"));
+
+      document.getElementById("view-placeholder").style.display = "none";
+      document.getElementById("view-editor-area").style.display = "block";
+
+      // フォーム初期化 (新規なのでIDは空)
+      document.getElementById("form-doc-id").value = "";
+      
+      const titleInput = document.getElementById("form-title");
+      titleInput.value = "";
+      titleInput.placeholder = "新しいドキュメントのタイトル...";
+      titleInput.readOnly = false;
+
+      // ボタンのセット
+      document.getElementById("btn-edit").style.display = "none";
+      document.getElementById("btn-delete").style.display = "none";
+      document.getElementById("btn-save").style.display = "inline-block";
+      document.getElementById("btn-cancel").style.display = "inline-block";
+
+      // 通常編集モードでエディタを立ち上げる
+      document.getElementById("easymde-textarea").value = "";
+      buildEditor(false);
+    }
+
+    // 「削除」ボタンをクリックしたときの安全な処理
+    function submitDeleteForm() {
+      if (selectedDoc && confirm(`「${selectedDoc.title}」を削除してもよろしいですか？`)) {
+        const delForm = document.getElementById("delete-form");
+        delForm.action = `/markdown/delete/${selectedDoc.id}`;
+        delForm.submit();
+      }
+    }
+  </script>
 </body>
 </html>
 

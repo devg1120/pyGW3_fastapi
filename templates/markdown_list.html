@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ドキュメント管理</title>
+    <style>
+        /* 全体リセットと固定ヘッダー対策 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f8f9fa;
+            padding-top: 110px; /* 固定ヘッダーとタブの高さ分の余白 */
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* 画面上部のアクションエリア */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .page-header h2 {
+            font-size: 22px;
+            color: #1d1c1d;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 14px;
+            text-decoration: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: #007a5a;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #145e49;
+        }
+        .btn-danger {
+            background: #e01e5a;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #b71243;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid #ccc;
+            color: #555;
+            padding: 6px 12px;
+        }
+        .btn-outline:hover {
+            background: #f1f1f4;
+        }
+
+        /* ドキュメント一覧のリストスタイル */
+        .doc-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .doc-item {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e2e2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .doc-info h3 {
+            font-size: 18px;
+            color: #1164A3;
+            margin-bottom: 6px;
+        }
+        .doc-info h3 a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .doc-info h3 a:hover {
+            text-decoration: underline;
+        }
+        .doc-meta {
+            font-size: 13px;
+            color: #666;
+        }
+        .doc-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e2e2;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 1. 共通固定ヘッダーとタブエリア -->
+    <div class="header-container" style="position: fixed; top: 0; left: 0; right: 0; background: white; z-index: 1030; border-bottom: 1px solid #ddd; padding: 10px 20px; height: 95px;">
+        <h1 style="font-size: 20px; margin: 0; display: inline-block;">社内グループウェア</h1>
+        <span style="float: right; font-size: 14px; margin-top: 5px;">ようこそ、{{ current_user.username }} さん | <a href="/logout">ログアウト</a></span>
+        
+        <div class="tab-container" style="margin-top: 15px; display: flex; gap: 15px;">
+            <a href="/" style="text-decoration: none; color: #555; padding: 5px 10px;">ダッシュボード</a>
+            <a href="/kanban" style="text-decoration: none; color: #555; padding: 5px 10px;">かんばん</a>
+            <a href="/members" style="text-decoration: none; color: #555; padding: 5px 10px;">メンバー</a>
+            <a href="/chat" style="text-decoration: none; color: #555; padding: 5px 10px;">チャット</a>
+            <a href="/markdown" style="text-decoration: none; color: #1164A3; font-weight: bold; border-bottom: 2px solid #1164A3; padding: 5px 10px;">ドキュメント管理</a>
+        </div>
+    </div>
+
+    <!-- 2. メインコンテンツ -->
+    <div class="container">
+        
+        <div class="page-header">
+            <h2>社内ドキュメント一覧</h2>
+            <!-- 新規作成画面（/markdown/edit）へ遷移するボタン -->
+            <a href="/markdown/edit" class="btn btn-primary">+ 新規ドキュメント作成</a>
+        </div>
+
+        <div class="doc-list">
+            {% if docs %}
+                {% for doc in docs %}
+                    <div class="doc-item">
+                        <div class="doc-info">
+                            <!-- タイトルクリックで編集画面（データ流し込み状態）へ -->
+                            <h3><a href="/markdown/edit?doc_id={{ doc.id }}">{{ doc.title }}</a></h3>
+                            <div class="doc-meta">
+                                更新日: {{ doc.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                            </div>
+                        </div>
+                        <div class="doc-actions">
+                            <a href="/markdown/edit?doc_id={{ doc.id }}" class="btn btn-outline">編集</a>
+                            <!-- 削除用フォーム -->
+                            <form action="/markdown/delete//{{ doc.id }}" method="POST" onsubmit="return confirm('本当にこのドキュメントを削除しますか？');" style="display:inline;">
+                                <button type="submit" class="btn btn-danger" style="padding: 6px 12px; font-size: 13px;">削除</button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-data">
+                    登録されているドキュメントはありません。新しく作成してみましょう！
+                </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+</body>
+</html>
+

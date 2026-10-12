@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Markdownドキュメント編集</title>
+    <!-- EasyMDE (Markdownエディタ) のCSS/JSを読み込み -->
+
+    <!--
+    <link rel="stylesheet" href="https://jsdelivr.net">
+    <script src="https://jsdelivr.net"></script>
+    -->
+
+   <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f8f9fa; }
+        .container { max-width: 900px; margin: 90px auto 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; }
+        .form-group input[type="text"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+        .btn-area { display: flex; gap: 10px; justify-content: flex-end; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; text-decoration: none; }
+        .btn-primary { background: #007a5a; color: white; }
+        .btn-secondary { background: #e2e2e2; color: #333; }
+    </style>
+</head>
+<body>
+
+    <!-- ※ここに以前作成した共通ヘッダー・タブエリアを挿入してください -->
+
+    <div class="container">
+        <h2>{% if doc %}ドキュメントの編集{% else %}新しいドキュメントの作成{% endif %}</h2>
+        <br>
+        <form action="/markdown/save" method="POST">
+            <!-- 既存編集の場合はIDを隠しフィールドで送信 -->
+            {% if doc %}<input type="hidden" name="doc_id" value="{{ doc.id }}">{% endif %}
+            
+            <div class="form-group">
+                <label for="title">タイトル</label>
+                <input type="text" id="title" name="title" value="{% if doc %}{{ doc.title }}{% endif %}" placeholder="ドキュメントのタイトルを入力" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="content">本文 (Markdown形式)</label>
+                <!-- EasyMDEがこのtextareaをリッチなエディタに変形させます -->
+                <textarea id="content" name="content">{% if doc %}{{ doc.content }}{% endif %}</textarea>
+            </div>
+            
+            <div class="btn-area">
+                <a href="/markdown" class="btn btn-secondary">キャンセル</a>
+                <button type="submit" class="btn btn-primary">保存する</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // textareaをMarkdownエディタに初期化
+        const easyMDE = new EasyMDE({
+            element: document.getElementById('content'),
+            spellChecker: false, // 日本語環境では不要なため無効化
+            autosave: {
+                enabled: true,
+                uniqueId: "markdown_autosave_{% if doc %}{{ doc.id }}{% else %}new{% endif %}",
+                delay: 5000, // 5秒ごとにローカルストレージへ自動下書き保存
+            },
+            renderingConfig: {
+                singleLineBreaks: false // GitHub準拠の改行ルール
+            },
+            placeholder: "ここにマークダウン形式で記事を執筆できます...",
+            minHeight: "350px"
+        });
+    </script>
+</body>
+</html>
+

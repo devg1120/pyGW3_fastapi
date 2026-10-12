@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>社内グループウェア</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+ <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
+   
+    <style>
+        #calendar {
+            max-width: 900px;
+            margin: 20px auto;
+            min-height: 500px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+    </style>
+
+     
+
+</head>
+<body class="bg-light">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="#">社内ポータル</a>
+        <div class="navbar-nav ms-auto">
+            <span class="nav-item nav-link text-white me-3">ようこそ、{{ current_user.username }} さん</span>
+            <a class="nav-item nav-link btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">ログアウト</a>
+        </div>
+    </div>
+</nav>
+
+   <h2>📅 スケジュール共有（月間カレンダー）</h2>
+
+    <!-- 予定登録フォーム（既存のものがあればそのまま利用、または日付とタイトルを入力） -->
+
+    <!-- ⚠️ 以前のスケジュール一覧（forループの部分）を削除し、このdivに置き換えます -->
+    <div id="calendar"></div>
+
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <!-- 左側：スケジュール共有 -->
+        <div class="col-md-4">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">予定の追加</div>
+                <div class="card-body">
+                    <form action="{{ url_for('new_schedule') }}" method="POST">
+                        <div class="mb-3">
+                            <label class="form-label">日付</label>
+                            <input type="date" name="date" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">タイトル</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">詳細</label>
+                            <textarea name="description" class="form-control" rows="2"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">登録</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-secondary text-white">スケジュール一覧</div>
+                <ul class="list-group list-group-flush">
+                    {% for schedule in schedules %}
+                    <li class="list-group-item">
+                        <strong>[{{ schedule.date }}]</strong> {{ schedule.title }}<br>
+                        <small class="text-muted">{{ schedule.description }} (登録: {{ schedule.creator.username }})</small>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-muted">予定はありません。</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- 右側：掲示板 ＆ ファイル共有 -->
+        <div class="col-md-8">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-success text-white">新規掲示・ファイル共有</div>
+                <div class="card-body">
+                    <form action="{{ url_for('new_post') }}" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">件名</label>
+                            <input type="text" name="title" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">本文</label>
+                            <textarea name="content" class="form-control" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">添付ファイル (任意)</label>
+                            <input type="file" name="file" class="form-control">
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">投稿する</button>
+                    </form>
+                </div>
+            </div>
+
+            <h3 class="mb-3">掲示板一覧</h3>
+            {% for post in posts %}
+            <div class="card mb-3 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">{{ post.title }}</h5>
+                    <h6 class="card-subtitle mb-2 text-muted">投稿者: {{ post.author.username }} | {{ post.date_posted.strftime('%Y-%m-%d %H:%M') }}</h6>
+                    <p class="card-text" style="white-space: pre-wrap;">{{ post.content }}</p>
+                    {% if post.filename %}
+                    <div class="alert alert-secondary py-2 mb-0">
+                        📎 添付ファイル: <a href="{{ url_for('uploaded_file', filename=post.filename) }}" target="_blank">{{ post.filename }}</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted">投稿はまだありません。</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+   <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth', // 月間カレンダー表示
+                locale: 'ja',                // 日本語化
+                firstDay: 0,                 // 日曜日から開始 (1にすると月曜開始)
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: '' // 今回は月間のみなので右側は空に
+                },
+                // 先ほどFlask側で作ったAPIからデータを自動取得
+                events: '/api/schedules',
+
+                // オプション：予定をクリックしたときの動作（例：ポップアップ表示）
+                eventClick: function(info) {
+                    alert('予定: ' + info.event.title);
+                }
+            });
+            calendar.render();
+        });
+    </script>
+   <script>
+        // window.onload を使うことで、FullCalendarのダウンロード完了を確実に待ちます
+        window.onload = function() {
+            // FullCalendarが正しく読み込まれているかチェック
+            if (typeof FullCalendar === 'undefined') {
+                console.error("FullCalendarライブラリの読み込みに失敗しています。ネット接続やURLを確認してください。");
+                alert("カレンダーの読み込みに失敗しました。ページを再読み込みしてください。");
+                return;
+            }
+
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'ja',
+                firstDay: 0,
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: ''
+                },
+                events: '/api/schedules',
+                eventClick: function(info) {
+                    alert('予定: ' + info.event.title);
+                }
+            });
+            calendar.render();
+        };
+    </script>
+</body>
+</html>

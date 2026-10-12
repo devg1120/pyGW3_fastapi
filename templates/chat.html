@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>社内チャット</title>
+    <style>
+        /* デフォルトスタイルのリセットとレイアウト均一化 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background: #f4f5f6;
+        }
+        
+        /* サイドバー (Slackベースのカラー) */
+        .sidebar {
+            width: 240px;
+            background: #3F0E40;
+            color: #bcabbd;
+            padding: 20px 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar h2 {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #522653;
+        }
+        .channels {
+            list-style: none;
+        }
+        .channels li {
+            padding: 10px;
+            border-radius: 6px;
+            background: #1164A3;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        /* メインチャットエリア */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e2e2;
+            font-weight: bold;
+            font-size: 18px;
+            color: #1d1c1d;
+        }
+        .messages-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        
+        /* メッセージバルーンの構造定義 */
+        .message {
+            display: flex;
+            flex-direction: column;
+            padding: 8px 14px;
+            border-radius: 8px;
+            max-width: 75%;
+            word-break: break-all;
+        }
+        .message.system {
+            color: #868686;
+            font-style: italic;
+            font-size: 13px;
+            align-self: center;
+            background: transparent;
+            padding: 2px;
+        }
+        .message.other {
+            background: #f1f1f4;
+            align-self: flex-start;
+        }
+        .message.me {
+            background: #d1ebd1;
+            align-self: flex-end;
+        }
+        
+        /* 名前と本文のクリアな上下分離 */
+        .msg-user {
+            font-size: 12px;
+            font-weight: 700;
+            color: #4a4a4a;
+            margin-bottom: 4px;
+        }
+        .msg-text {
+            font-size: 15px;
+            color: #1d1c1d;
+            line-height: 1.4;
+        }
+        
+        /* フッター入力エリア */
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #e2e2e2;
+            display: flex;
+            gap: 12px;
+            background: #fff;
+        }
+        .input-area input {
+            flex: 1;
+            padding: 14px;
+            border: 1px solid #bbbbbb;
+            border-radius: 6px;
+            font-size: 15px;
+            outline: none;
+        }
+        .input-area input:focus {
+            border-color: #1164A3;
+        }
+        .input-area button {
+            padding: 0 24px;
+            background: #007a5a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .input-area button:hover {
+            background: #145e49;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 1. [追加] 画面上部に固定するヘッダーと共通タブ -->
+    <div class="header-container" style="position: fixed; top: 0; left: 0; right: 0; background: white; z-index: 1030; border-bottom: 1px solid #ddd; padding: 10px 20px;">
+        <h1 style="font-size: 20px; margin: 0; display: inline-block;">社内グループウェア</h1>
+        <span style="float: right; font-size: 14px; margin-top: 5px;">ようこそ、{{ current_user.username }} さん | <a href="/logout">ログアウト</a></span>
+
+        <!-- 切り替えタブエリア -->
+        <div class="tab-container" style="margin-top: 10px; display: flex; gap: 15px;">
+            <a href="/" style="text-decoration: none; color: #555; padding: 5px 10px;">ダッシュボード</a>
+            <a href="/kanban" style="text-decoration: none; color: #555; padding: 5px 10px;">かんばん</a>
+            <a href="/members" style="text-decoration: none; color: #555; padding: 5px 10px;">メンバー</a>
+            <a href="/chat" style="text-decoration: none; color: #1164A3; font-weight: bold; border-bottom: 2px solid #1164A3; padding: 5px 10px;">チャット</a>
+        </div>
+    </div>
+
+    <!-- 2. 下部のメインエリア（ヘッダーと被らないように padding-top を設定） -->
+    <div class="main-wrapper" style="display: flex; width: 100%; height: 100vh; padding-top: 90px;">
+
+        <!-- 左側：サイドバー -->
+        <div class="sidebar">
+            <h2 style="font-size: 16px; color: #bcabbd; border: none; padding: 0; margin-bottom: 10px;">チャンネル</h2>
+            <ul class="channels">
+                <li># 一般チャット</li>
+            </ul>
+        </div>
+
+        <!-- 右側：メインチャットエリア -->
+        <div class="chat-area">
+            <div class="chat-header"># 一般チャット</div>
+
+            <div class="messages-container" id="messages">
+                {% for msg in past_messages %}
+                    <div class="message {% if msg.username == current_user.username %}me{% else %}other{% endif %}">
+                        <span class="msg-user">{{ msg.username }}</span>
+                        <span class="msg-text">{{ msg.text }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="messageText" placeholder="#一般チャット へのメッセージ" autocomplete="off">
+                <button onclick="sendMessage()">送信</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- script部分は変更なしのため、先ほどのものをそのまま下に残してください -->
+
+
+    <script>
+        const username = "{{ current_user.username }}";
+        
+        // WebSocketのコネクション確率
+        const wsProtocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+        const ws = new WebSocket(`${wsProtocol}${window.location.host}/ws/chat/${username}`);
+
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageText');
+
+        // 起動時に過去ログの一番下までスクロールさせる
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        // メッセージ受信（リアルタイム処理）
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            const msgDiv = document.createElement('div');
+            
+            if (data.user === "System") {
+                msgDiv.className = "message system";
+                msgDiv.innerText = data.text;
+            } else {
+                msgDiv.className = data.user === username ? "message me" : "message other";
+                msgDiv.innerHTML = `<span class="msg-user">${data.user}</span><span class="msg-text">${data.text}</span>`;
+            }
+            
+            messagesContainer.appendChild(msgDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        };
+
+        // メッセージ送信
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (text && ws.readyState === WebSocket.OPEN) {
+                ws.send(text);
+                messageInput.value = '';
+            }
+        }
+
+        messageInput.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
+

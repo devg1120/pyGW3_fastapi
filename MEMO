@@ -1,0 +1,5 @@
+
+pip install fastapi uvicorn sqlalchemy passlib[bcrypt] python-multipart jinja2 itsdangerous
+
+pip install "uvicorn[standard]"
+

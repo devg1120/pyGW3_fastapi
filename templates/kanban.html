@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>かんばんボード - 社内グループウェア</title>
+    <!-- Bootstrap 5 CSS -->
+       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="bg-light">
+
+<div class="container my-4">
+    <!-- ヘッダー部分 -->
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+        <h1 class="h3 mb-0 text-primary">社内ポータル</h1>
+        <div>
+            <span class="me-3 text-secondary">ようこそ、<strong>{{ current_user.username }}</strong> さん</span>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">ログアウト</a>
+        </div>
+    </div>
+
+    <!-- フラッシュメッセージ表示 -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ─── ページナビゲーション ─── -->
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('index') }}">📊 ダッシュボード</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link active" href="{{ url_for('kanban') }}">📋 かんばんボード</a>
+        </li>
+    </ul>
+
+    <!-- ─── かんばんコンテンツ ─── -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form action="{{ url_for('new_kanban_task') }}" method="POST" class="row g-2 align-items-center">
+                <div class="col-auto flex-grow-1">
+                    <input type="text" name="title" class="form-control form-control-sm" placeholder="新しいタスクを入力..." required>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary btn-sm">タスク追加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- 未着手 -->
+        <div class="col-md-4 mb-3">
+            <div class="card border-secondary h-100">
+                <div class="card-header bg-secondary text-white fw-bold">未着手 (To Do)</div>
+                <div class="card-body bg-light p-2" style="min-height: 400px;">
+                    {% for task in kanban_tasks if task.status == 'todo' %}
+                        <div class="card mb-2 shadow-sm p-2 small bg-white">{{ task.title }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <!-- 進行中 -->
+        <div class="col-md-4 mb-3">
+            <div class="card border-warning h-100">
+                <div class="card-header bg-warning text-dark fw-bold">進行中 (Doing)</div>
+                <div class="card-body bg-light p-2" style="min-height: 400px;">
+                    {% for task in kanban_tasks if task.status == 'doing' %}
+                        <div class="card mb-2 shadow-sm p-2 small bg-white">{{ task.title }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <!-- 完了 -->
+        <div class="col-md-4 mb-3">
+            <div class="card border-success h-100">
+                <div class="card-header bg-success text-white fw-bold">完了 (Done)</div>
+                <div class="card-body bg-light p-2" style="min-height: 400px;">
+                    {% for task in kanban_tasks if task.status == 'done' %}
+                        <div class="card mb-2 shadow-sm p-2 small bg-white text-decoration-line-through text-muted">{{ task.title }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

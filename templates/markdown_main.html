@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ドキュメント管理</title>
+  <!-- EasyMDEのCSSとJS（編集時に使用するため読み込み） -->
+  
+     <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.css"
+      />
+      <script src="https://cdn.jsdelivr.net/npm/easymde/dist/easymde.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+      height: 100vh;
+      color: #333;
+    }
+    /* サイドバーのスタイル */
+    .sidebar {
+      width: 250px;
+      background-color: #f5f5f5;
+      border-right: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-title {
+      padding: 15px;
+      font-size: 1.2rem;
+      border-bottom: 1px solid #ddd;
+      margin: 0;
+    }
+    .doc-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      overflow-y: auto;
+    }
+    .doc-item {
+      padding: 12px 15px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+      transition: background 0.2s;
+    }
+    .doc-item:hover {
+      background-color: #e9e9e9;
+    }
+    .doc-item.active {
+      background-color: #007bff;
+      color: white;
+    }
+    /* メインプレビューエリアのスタイル */
+    .main-content {
+      flex: 1;
+      padding: 30px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    #doc-title {
+      margin: 0;
+    }
+    /* Markdownプレビューの見た目を整える */
+    .markdown-body {
+      line-height: 1.6;
+    }
+    .markdown-body h1, .markdown-body h2 {
+      border-bottom: 1px solid #eee;
+      padding-bottom: 0.3em;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- サイドバー -->
+  <div class="sidebar">
+    <h2 class="sidebar-title">ドキュメント一覧</h2>
+    <ul class="doc-list" id="doc-list">
+      <!-- JSで動的に挿入、またはSSRで出力 -->
+    </ul>
+  </div>
+
+  <!-- メインエリア -->
+  <div class="main-content">
+    <div class="preview-header">
+      <h1 id="doc-title">ドキュメントを選択してください</h1>
+      <button id="edit-btn" style="display:none;">編集する</button>
+    </div>
+    <!-- プレビュー表示用コンテナ -->
+    <div id="doc-preview" class="markdown-body"></div>
+    <!-- 編集時用のテキストエリア（初期状態は非表示） -->
+    <div id="editor-container" style="display:none;">
+      <textarea id="markdown-editor"></textarea>
+    </div>
+  </div>
+
+  <script>
+    // --- 擬似データ（バックエンドからの取得を想定） ---
+    const documents = [
+      { id: 1, title: "仕様書について", content: "# 仕様書\n\nこれは**プロジェクトA**の仕様書です。\n\n- タスク1\n- タスク2" },
+      { id: 2, title: "ミーティング議事録", content: "# 議事録\n\n## 議題\n今後の開発スケジュールについて。\n\n遅延なく進行中。" }
+    ];
+
+    let currentDoc = null;
+    let easymde = null;
+
+    // DOM要素の取得
+    const docList = document.getElementById('doc-list');
+    const docTitle = document.getElementById('doc-title');
+    const docPreview = document.getElementById('doc-preview');
+    const editBtn = document.getElementById('edit-btn');
+    const editorContainer = document.getElementById('editor-container');
+
+    // 一覧の描画
+    function renderList() {
+      docList.innerHTML = '';
+      documents.forEach(doc => {
+        const li = document.createElement('li');
+        li.className = 'doc-item';
+        li.textContent = doc.title;
+        li.onclick = () => selectDocument(doc, li);
+        docList.appendChild(li);
+      });
+    }
+
+    // ドキュメントの選択
+    function selectDocument(doc, element) {
+      currentDoc = doc;
+      
+      // アクティブクラスの切り替え
+      document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+
+      // 編集状態を閉じてプレビューを表示
+      closeEditor();
+
+      // タイトルの更新
+      docTitle.textContent = doc.title;
+      
+      // EasyMDEのスタティックパース機能を利用してMarkdownをHTMLに変換
+      // もしEasyMDEインスタンスがまだなければ仮で作るか、EasyMDE.prototype.markdownを使用
+      docPreview.innerHTML = EasyMDE.prototype.markdown(doc.content);
+      
+      // 編集ボタンを表示
+      editBtn.style.display = 'block';
+    }
+
+    // 編集モードを開く
+    editBtn.onclick = () => {
+      if (editorContainer.style.display === 'none') {
+        // 編集モードへ
+        docPreview.style.display = 'none';
+        editorContainer.style.display = 'block';
+        editBtn.textContent = '保存する';
+
+        // EasyMDEの初期化（一度だけ生成）
+        if (!easymde) {
+          easymde = new EasyMDE({
+            element: document.getElementById('markdown-editor'),
+            spellChecker: false,
+            autosave: { enabled: false }
+          });
+        }
+        easymde.value(currentDoc.content);
+      } else {
+        // 保存処理（擬似）
+        currentDoc.content = easymde.value();
+        // 本来はここでサーバーにfetch(API)などで保存リクエストを送る
+        
+        closeEditor();
+        docPreview.innerHTML = EasyMDE.prototype.markdown(currentDoc.content);
+      }
+    };
+
+    function closeEditor() {
+      docPreview.style.display = 'block';
+      editorContainer.style.display = 'none';
+      editBtn.textContent = '編集する';
+    }
+
+    // 初期実行
+    renderList();
+  </script>
+</body>
+</html>
+
